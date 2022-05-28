@@ -128,21 +128,21 @@ read_io_high:
 
 check_pin:
 	move r1, previous
-	ld r2, r1, 0
-	st r0, r1, 0
+	ld r2, r1, 0  	// load previous state
+	st r0, r1, 0  	// store new state
 
-	and r0, r0, 1
+	and r0, r0, 1 	// check new state
 	jumpr check_active1, 1, eq
 
 check_edge:
-	and r2, r2, 1
+	and r2, r2, 1 	// check old state
 	jump check_active2, eq
 	jump idle
 
 check_active1:
 	move r3, active
 	ld r3, r3, 0
-	and r3, r3, 1
+	and r3, r3, 1 	// check if active
 	jump exit, eq
 
 idle:
@@ -150,15 +150,15 @@ idle:
 	move r1, timeout_max
 	ld r0, r0, 0
 	ld r1, r1, 0
-	sub r0, r1, r0
+	sub r0, r1, r0 // check if timed out
 	jump timeout, eq
 
 	move r0, timeout_count
 	move r2, duration
 	ld r1, r0, 0
 	ld r3, r2, 0
-	add r1, r1, 1
-	add r3, r3, 1
+	add r1, r1, 1 	// increment timeout counter
+	add r3, r3, 1 	// increment duration counter
 	st r1, r0, 0
 	st r3, r2, 0
 	jump exit
@@ -166,40 +166,40 @@ idle:
 timeout:
 	move r0, 0
 	move r1, active
-	st r0, r1, 0
-	jump wake_up
+	st r0, r1, 0	// deactivate
+	jump wake_up	// wake up main cpu
 
 check_active2:
 	move r1, active
 	ld r1, r1, 0
-	and r0, r1, 1
+	and r0, r1, 1	// check if active
 	jumpr do_stuff, 1, eq
 
 activate:
 	move r0, 1
 	move r1, active
-	st r0, r1, 0
+	st r0, r1, 0	// activate
 	move r0, 0
 	move r1, duration
-	st r0, r1, 0
+	st r0, r1, 0	// clear duration
 	move r1, steps
-	st r0, r1, 0
+	st r0, r1, 0	// clear step count
 	move r1, load
-	st r0, r1, 0
+	st r0, r1, 0	// clear load measure
 
 do_stuff:
 	move r0, 0
 	move r1, timeout_count
-	st r0, r1, 0
+	st r0, r1, 0	// clear timeout counter
 
 	move r0, duration
 	ld r1, r0, 0
 	add r1, r1, 1
-	st r1, r0, 0
+	st r1, r0, 0	// increment duration
 	move r0, steps
 	ld r1, r0, 0
 	add r1, r1, 1
-	st r1, r0, 0
+	st r1, r0, 0	// increment step count
 
 	/* do measurements using ADC */
 	/* r0 will be used as accumulator */
@@ -220,12 +220,12 @@ measure:
 
 
 	move r3, last_result
-	st r0, r3, 0
+	st r0, r3, 0	// store last result
 	move r3, load
 	ld r2, r3, 0
 	add r0, r0, r2
 	rsh r0, r0, 1
-	st r0, r3, 0
+	st r0, r3, 0	// store load
 
 	.global exit
 exit:
