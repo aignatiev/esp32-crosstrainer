@@ -136,8 +136,8 @@ check_pin:
 
 check_edge:
 	and r2, r2, 1 	// check old state
-	jump check_active2, eq
-	jump idle
+	jump idle, eq
+	jump check_active2
 
 check_active1:
 	move r3, active
