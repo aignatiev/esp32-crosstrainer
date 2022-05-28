@@ -29,7 +29,7 @@
 	/* ADC1 channel 6, GPIO34 */
 	.set adc_channel, 6
 
-	.set bullshit_value, 66
+	.set bullshit_value, 666
 
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 2. */
@@ -201,8 +201,24 @@ do_stuff:
 	add r1, r1, 1
 	st r1, r0, 0
 
+	/* do measurements using ADC */
+	/* r0 will be used as accumulator */
+	move r0, 0
+	/* initialize the loop counter */
+	stage_rst
 measure:
-	adc r0, 0, adc_channel + 1
+	/* measure and add value to accumulator */
+	adc r1, 0, adc_channel + 1
+	add r0, r0, r1
+	/* increment loop counter and check exit condition */
+	stage_inc 1
+	jumps measure, adc_oversampling_factor, lt
+
+	/* divide accumulator by adc_oversampling_factor.
+	   Since it is chosen as a power of two, use right shift */
+	rsh r0, r0, adc_oversampling_factor_log
+
+
 	move r3, last_result
 	st r0, r3, 0
 	move r3, load
@@ -210,10 +226,7 @@ measure:
 	add r0, r0, r2
 	rsh r0, r0, 1
 	st r0, r3, 0
-//	jump wake_up
-	jump exit
 
-	/* value within range, end the program */
 	.global exit
 exit:
 	halt
