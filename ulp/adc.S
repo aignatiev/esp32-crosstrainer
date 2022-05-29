@@ -29,7 +29,8 @@
 	/* ADC1 channel 6, GPIO34 */
 	.set adc_channel, 6
 
-	.set bullshit_value, 666
+	// Bullshit value to see if this file has been recompiled or not
+	.set bullshit_value, 670
 
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 2. */
@@ -54,7 +55,17 @@ active:
 previous:
 	.long 0
 
-	// Duration of the exercise
+	// Counter for one second
+	.global int_to_second_count
+int_to_second_count:
+	.long 0
+
+	// Limit for one second counter
+	.global int_to_second_max
+int_to_second_max:
+	.long 0
+
+	// Duration of the exercise (in seconds)
 	.global duration
 duration:
 	.long 0
@@ -154,13 +165,28 @@ idle:
 	jump timeout, eq
 
 	move r0, timeout_count
-	move r2, duration
 	ld r1, r0, 0
-	ld r3, r2, 0
 	add r1, r1, 1 	// increment timeout counter
-	add r3, r3, 1 	// increment duration counter
 	st r1, r0, 0
-	st r3, r2, 0
+
+	move r1, int_to_second_count
+	ld r0, r1, 0
+	add r0, r0, 1
+	st r0, r1, 0  	// increment int_to_second counter
+
+	move r2, int_to_second_max
+	ld r2, r2, 0
+	sub r0, r0, r2	// check if we have a second
+
+	jump exit, ov
+
+	move r2, 0
+	st r2, r1, 0	// clear int_to_second counter
+
+	move r0, duration
+	ld r1, r0, 0
+	add r1, r1, 1 	// increment duration counter
+	st r1, r0, 0
 	jump exit
 
 timeout:
@@ -180,6 +206,8 @@ activate:
 	move r1, active
 	st r0, r1, 0	// activate
 	move r0, 0
+	move r1, int_to_second_count
+	st r0, r1, 0	// clear second counter
 	move r1, duration
 	st r0, r1, 0	// clear duration
 	move r1, steps
@@ -192,20 +220,37 @@ do_stuff:
 	move r1, timeout_count
 	st r0, r1, 0	// clear timeout counter
 
-	move r0, duration
-	ld r1, r0, 0
-	add r1, r1, 1
-	st r1, r0, 0	// increment duration
 	move r0, steps
 	ld r1, r0, 0
 	add r1, r1, 1
 	st r1, r0, 0	// increment step count
 
+	move r1, int_to_second_count
+	ld r0, r1, 0
+	add r0, r0, 1
+	st r0, r1, 0	// increment int_to_second counter
+
+	move r2, int_to_second_max
+	ld r2, r2, 0
+	sub r0, r0, r2	// check if we have a second
+
+	jump init_measure, ov
+
+	move r2, 0
+	st r2, r1, 0	// clear int_to_second counter
+
+	move r0, duration
+	ld r1, r0, 0
+	add r1, r1, 1
+	st r1, r0, 0	// increment duration
+
+init_measure:
 	/* do measurements using ADC */
 	/* r0 will be used as accumulator */
 	move r0, 0
 	/* initialize the loop counter */
 	stage_rst
+
 measure:
 	/* measure and add value to accumulator */
 	adc r1, 0, adc_channel + 1
