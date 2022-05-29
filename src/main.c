@@ -83,7 +83,7 @@ static void init_ulp_program(void) {
    printf("Using RTC pin %d for GPIO pin %d\n", rtcio_num, gpio_num);
 
    ulp_io_number = rtcio_num; /* map from GPIO# to RTC_IO# */
-   ulp_timeout_max = 50*20;  // 20s delay
+   ulp_timeout_max = 100*10;  // 10s delay
 
    /* Initialize selected GPIO as RTC IO, enable input, disable pullup and pulldown */
    rtc_gpio_init(gpio_num);
@@ -92,8 +92,8 @@ static void init_ulp_program(void) {
    rtc_gpio_pullup_dis(gpio_num);
    rtc_gpio_hold_en(gpio_num);
 
-   /* Set ULP wake up period to 20ms */
-   ulp_set_wakeup_period(0, 20000);
+   /* Set ULP wake up period to 10ms */
+   ulp_set_wakeup_period(0, 10000);  // Delay for inactive mode
 
    /* Disconnect GPIO12 and GPIO15 to remove current drain through
     * pullup/pulldown resistors.
