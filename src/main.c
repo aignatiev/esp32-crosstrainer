@@ -27,7 +27,7 @@
 #define DO_UPLOAD
 
 // This one defines whether all debug prints are printed (for debugging)
-//#define PRINT_ALL
+#define PRINT_ALL
 
 // Magic number to check whether the RTC memory is intact
 #define MAGIC_NUMBER 0xdeadbeef
@@ -176,7 +176,7 @@ void app_main(void) {
 
       char params[128];
       sprintf(params, "id=%d&dur=%d&steps=%d&diff=%d&vbat=%d", 
-            rtc_id, ulp_duration/60, ulp_steps, ulp_load, 0);
+            rtc_id, ulp_duration, ulp_steps, ulp_load, 0);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 
