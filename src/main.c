@@ -16,6 +16,7 @@
 #include "nvs_flash.h"
 #include "soc/rtc_cntl_reg.h"
 #include "soc/sens_reg.h"
+#include "soc/rtc.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
 #include "driver/adc.h"
@@ -153,6 +154,13 @@ void app_main(void) {
    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
    if (cause != ESP_SLEEP_WAKEUP_ULP) {
       printf("Not ULP wakeup\n");
+
+      // calibrate 8M/256 clock against XTAL, get 8M/256 clock period
+      uint32_t rtc_8md256_period = rtc_clk_cal(RTC_CAL_8MD256, 1024);
+      uint32_t rtc_fast_freq_hz = 1000000ULL * (1 << RTC_CLK_CAL_FRACT) * 256 / rtc_8md256_period;
+      printf("rtc_8md256_period = %d\n", rtc_8md256_period);
+      printf("rtc_fast_freq_hz = %d\n", rtc_fast_freq_hz);
+
       init_ulp_program();
    } else {
       printf("Deep sleep wakeup\n");
@@ -226,7 +234,7 @@ static void init_ulp_program(void) {
    rtc_gpio_init(gpio_num);
    rtc_gpio_set_direction(gpio_num, RTC_GPIO_MODE_INPUT_ONLY);
    rtc_gpio_pulldown_dis(gpio_num);
-   rtc_gpio_pullup_dis(gpio_num);
+   //rtc_gpio_pullup_dis(gpio_num);
    rtc_gpio_hold_en(gpio_num);
 
    /* Set ULP wake up period to 10ms */
