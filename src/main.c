@@ -31,7 +31,21 @@
 #define PRINT_ALL
 
 // Magic number to check whether the RTC memory is intact
-#define MAGIC_NUMBER 0xdeadbeef
+#define MAGIC_NUMBER    0xdeadbeef
+
+// Which pin REED switch is connected to
+#define REED_PIN        GPIO_NUM_0
+
+// ULP wakeup period in ms
+#define ULP_WAKEUP_MS   10
+
+// Excercise timeout in seconds
+#define TIMEOUT_S       10
+
+// Stuff related to the Google Script
+#define API_TOKEN "xyz"
+#define WEB_SERVER "script.google.com"
+#define WEB_URL "https://script.google.com/macros/s/" API_TOKEN "/exec?%s"
 
 #ifdef DO_UPLOAD
 #include "esp_wifi.h"
@@ -52,10 +66,6 @@
 #include "esp_crt_bundle.h"
 
 #include "wifi.h"
-
-#define API_TOKEN "xyz"
-#define WEB_SERVER "script.google.com"
-#define WEB_URL "https://script.google.com/macros/s/" API_TOKEN "/exec?%s"
 
 static const char *TAG = "main";
 
@@ -221,14 +231,14 @@ static void init_ulp_program(void) {
    adc1_ulp_enable();
 
    /* GPIO used for pulse counting. */
-   gpio_num_t gpio_num = GPIO_NUM_0;
+   gpio_num_t gpio_num = REED_PIN;
    int rtcio_num = rtc_io_number_get(gpio_num);
    assert(rtc_gpio_is_valid_gpio(gpio_num) && "GPIO used for pulse counting must be an RTC IO");
    printf("Using RTC pin %d for GPIO pin %d\n", rtcio_num, gpio_num);
 
    ulp_io_number = rtcio_num;
-   ulp_timeout_max = 100*10;     // 10s delay assuming 10ms interval
-   ulp_int_to_second_max = 100;  // Assuming 10ms interval
+   ulp_int_to_second_max = 1000 / ULP_WAKEUP_MS;
+   ulp_timeout_max = TIMEOUT_S * 1000 / ULP_WAKEUP_MS;
 
    /* Initialize selected GPIO as RTC IO, enable input, disable pullup and pulldown */
    rtc_gpio_init(gpio_num);
@@ -237,8 +247,7 @@ static void init_ulp_program(void) {
    //rtc_gpio_pullup_dis(gpio_num);
    rtc_gpio_hold_en(gpio_num);
 
-   /* Set ULP wake up period to 10ms */
-   ulp_set_wakeup_period(0, 10000);  // Delay for inactive mode
+   ulp_set_wakeup_period(0, ULP_WAKEUP_MS * 1000UL);
 
    /* Disconnect GPIO12 and GPIO15 to remove current drain through
     * pullup/pulldown resistors.
