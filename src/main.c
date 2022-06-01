@@ -177,6 +177,7 @@ void app_main(void) {
       ulp_last_result &= UINT16_MAX;
       ulp_bullshit &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
+      ulp_duration -= TIMEOUT_S;
       ulp_steps &= UINT16_MAX;
       ulp_load &= UINT16_MAX;
       printf("id = %d\n", rtc_id);
