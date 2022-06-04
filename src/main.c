@@ -193,9 +193,13 @@ void app_main(void) {
       ESP_ERROR_CHECK(esp_event_loop_create_default());
       ESP_ERROR_CHECK(wifi_connect());
 
+      wifi_ap_record_t ap;
+      esp_wifi_sta_get_ap_info(&ap);
+      printf("rssi = %d\n", ap.rssi);
+
       char params[128];
-      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, ulp_load, 0);
+      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d", 
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, ulp_load, 0, ap.rssi);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 
