@@ -197,9 +197,16 @@ void app_main(void) {
       esp_wifi_sta_get_ap_info(&ap);
       printf("rssi = %d\n", ap.rssi);
 
+      unsigned char mac[6] = {0};
+      char mac_str[6*2+5+1];
+      esp_efuse_mac_get_default(mac);
+      esp_read_mac(mac, ESP_MAC_WIFI_STA);
+      sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0] ,mac[1] ,mac[2] ,mac[3] ,mac[4] ,mac[5]);
+      printf("mac = %s\n", mac_str);
+   	
       char params[128];
-      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, ulp_load, 0, ap.rssi);
+      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s", 
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, ulp_load, 0, ap.rssi, mac_str);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 
