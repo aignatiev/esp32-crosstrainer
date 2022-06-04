@@ -177,13 +177,13 @@ void app_main(void) {
       ulp_last_result &= UINT16_MAX;
       ulp_bullshit &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
-      ulp_duration -= TIMEOUT_S;
       ulp_revs &= UINT16_MAX;
       ulp_load &= UINT16_MAX;
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
       printf("bullshit = %d\n", ulp_bullshit);
       printf("duration = %d\n", ulp_duration);
+      printf("timeout = %d\n", TIMEOUT_S);
       printf("revolutions = %d\n", ulp_revs);
       printf("load = %d\n", ulp_load);
 
@@ -194,8 +194,8 @@ void app_main(void) {
       ESP_ERROR_CHECK(wifi_connect());
 
       char params[128];
-      sprintf(params, "id=%d&dur=%d&revs=%d&diff=%d&vbat=%d", 
-            rtc_id, ulp_duration, ulp_revs, ulp_load, 0);
+      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d", 
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, ulp_load, 0);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 
