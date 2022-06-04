@@ -178,13 +178,13 @@ void app_main(void) {
       ulp_bullshit &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
       ulp_duration -= TIMEOUT_S;
-      ulp_steps &= UINT16_MAX;
+      ulp_revs &= UINT16_MAX;
       ulp_load &= UINT16_MAX;
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
       printf("bullshit = %d\n", ulp_bullshit);
       printf("duration = %d\n", ulp_duration);
-      printf("steps = %d\n", ulp_steps);
+      printf("revolutions = %d\n", ulp_revs);
       printf("load = %d\n", ulp_load);
 
 #ifdef DO_UPLOAD
@@ -194,8 +194,8 @@ void app_main(void) {
       ESP_ERROR_CHECK(wifi_connect());
 
       char params[128];
-      sprintf(params, "id=%d&dur=%d&steps=%d&diff=%d&vbat=%d", 
-            rtc_id, ulp_duration, ulp_steps, ulp_load, 0);
+      sprintf(params, "id=%d&dur=%d&revs=%d&diff=%d&vbat=%d", 
+            rtc_id, ulp_duration, ulp_revs, ulp_load, 0);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 

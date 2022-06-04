@@ -70,9 +70,9 @@ int_to_second_max:
 duration:
 	.long 0
 
-	// Step count of one exercise
-	.global steps
-steps:
+	// Revolution count of one exercise
+	.global revs
+revs:
 	.long 0
 
 	// Cumulative load of the excercise
@@ -210,8 +210,8 @@ activate:
 	st r0, r1, 0	// clear second counter
 	move r1, duration
 	st r0, r1, 0	// clear duration
-	move r1, steps
-	st r0, r1, 0	// clear step count
+	move r1, revs
+	st r0, r1, 0	// clear revolution count
 	move r1, load
 	st r0, r1, 0	// clear load measure
 
@@ -220,10 +220,10 @@ do_stuff:
 	move r1, timeout_count
 	st r0, r1, 0	// clear timeout counter
 
-	move r0, steps
+	move r0, revs
 	ld r1, r0, 0
 	add r1, r1, 1
-	st r1, r0, 0	// increment step count
+	st r1, r0, 0	// increment revolution count
 
 	move r1, int_to_second_count
 	ld r0, r1, 0
