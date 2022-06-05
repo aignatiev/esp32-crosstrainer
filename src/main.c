@@ -178,14 +178,20 @@ void app_main(void) {
       ulp_bullshit &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
       ulp_revs &= UINT16_MAX;
-      ulp_load &= UINT16_MAX;
+      ulp_load_hi &= UINT16_MAX;
+      ulp_load_lo &= UINT16_MAX;
+      uint32_t load = ulp_load_hi * 1000UL + ulp_load_lo;
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
       printf("bullshit = %d\n", ulp_bullshit);
       printf("duration = %d\n", ulp_duration);
       printf("timeout = %d\n", TIMEOUT_S);
       printf("revolutions = %d\n", ulp_revs);
-      printf("load = %d\n", ulp_load);
+      printf("load_hi = %d\n", ulp_load_hi);
+      printf("load_lo = %d\n", ulp_load_lo);
+      printf("load_sum = %d\n", load);
+      load /= ulp_revs;
+      printf("load = %d\n", load);
 
 #ifdef DO_UPLOAD
       ESP_ERROR_CHECK(nvs_flash_init());
@@ -206,7 +212,7 @@ void app_main(void) {
    	
       char params[128];
       sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, ulp_load, 0, ap.rssi, mac_str);
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 0, ap.rssi, mac_str);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 

@@ -75,9 +75,14 @@ duration:
 revs:
 	.long 0
 
-	// Cumulative load of the excercise
-	.global load
-load:
+	// Cumulative load (thousands) of the excercise
+	.global load_hi
+load_hi:
+	.long 0
+
+	// Cumulative load (ones) of the excercise
+	.global load_lo
+load_lo:
 	.long 0
 
 	// Counter for the timeout (end of the exercise)
@@ -212,7 +217,9 @@ activate:
 	st r0, r1, 0	// clear duration
 	move r1, revs
 	st r0, r1, 0	// clear revolution count
-	move r1, load
+	move r1, load_hi
+	st r0, r1, 0	// clear load measure
+	move r1, load_lo
 	st r0, r1, 0	// clear load measure
 
 do_stuff:
@@ -266,11 +273,22 @@ measure:
 
 	move r3, last_result
 	st r0, r3, 0	// store last result
-	move r3, load
+
+	move r3, load_lo
 	ld r2, r3, 0
 	add r0, r0, r2
-	rsh r0, r0, 1
+	jumpr overflow, 1000, ge
 	st r0, r3, 0	// store load
+	jump exit
+
+overflow:
+	move r1, load_hi
+	ld r2, r1, 0
+	add r2, r2, 1
+	st r2, r1, 0 	// increment load_hi by 1
+	sub r0, r0, 1000
+	st r0, r3, 0	// decrement load_lo by 1000
+	jumpr overflow, 1000, ge
 
 	.global exit
 exit:
