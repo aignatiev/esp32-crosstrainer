@@ -29,9 +29,6 @@
 	/* ADC1 channel 6, GPIO34 */
 	.set adc_channel, 6
 
-	// Bullshit value to see if this file has been recompiled or not
-	.set bullshit_value, 670
-
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 2. */
 	.set adc_oversampling_factor_log, 2
@@ -100,19 +97,10 @@ timeout_max:
 last_result:
 	.long 0
 
-	// Bullshit variable for bullshit debugging
-	.global bullshit
-bullshit:
-	.long 0
-
 	/* Code goes into .text section */
 	.text
 	.global entry
 entry:
-
-	move r0, bullshit
-	move r1, bullshit_value
-	st r1, r0, 0
 
 read_io:
 	/* Load io_number */

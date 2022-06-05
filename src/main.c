@@ -175,7 +175,6 @@ void app_main(void) {
    } else {
       printf("Deep sleep wakeup\n");
       ulp_last_result &= UINT16_MAX;
-      ulp_bullshit &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
       ulp_revs &= UINT16_MAX;
       ulp_load_hi &= UINT16_MAX;
@@ -183,7 +182,6 @@ void app_main(void) {
       uint32_t load = ulp_load_hi * 1000UL + ulp_load_lo;
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
-      printf("bullshit = %d\n", ulp_bullshit);
       printf("duration = %d\n", ulp_duration);
       printf("timeout = %d\n", TIMEOUT_S);
       printf("revolutions = %d\n", ulp_revs);
