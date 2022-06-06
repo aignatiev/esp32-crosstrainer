@@ -1,11 +1,3 @@
-/* ULP Example
-
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 
 // pio run -t menuconfig
 
@@ -87,16 +79,6 @@ extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
 RTC_DATA_ATTR uint32_t rtc_magic_number;  // To see whether RCT mem is valid
 RTC_DATA_ATTR uint8_t rtc_id;             // Measurement ID
 
-/* This function is called once after power-on reset, to load ULP program into
- * RTC memory and configure the ADC.
- */
-static void init_ulp_program(void);
-
-/* This function is called every time before going into deep sleep.
- * It starts the ULP program and resets measurement counter.
- */
-static void start_ulp_program(void);
-
 #ifdef DO_UPLOAD
 static void https_get_request(const char *WEB_SERVER_URL, const char *REQUEST) {
    int ret, len;
@@ -113,9 +95,7 @@ static void https_get_request(const char *WEB_SERVER_URL, const char *REQUEST) {
 
    size_t written_bytes = 0;
    do {
-      ret = esp_tls_conn_write(tls,
-                              REQUEST + written_bytes,
-                              strlen(REQUEST) - written_bytes);
+      ret = esp_tls_conn_write(tls, REQUEST + written_bytes, strlen(REQUEST) - written_bytes);
       if (ret >= 0) {
          ESP_LOGI(TAG, "%d bytes written", ret);
          written_bytes += ret;
@@ -127,8 +107,7 @@ static void https_get_request(const char *WEB_SERVER_URL, const char *REQUEST) {
 
    ESP_LOGI(TAG, "Reading HTTP response...");
    do {
-      len = sizeof(buf) - 1;
-      memset(buf, 0x00, sizeof(buf));
+      len = sizeof(buf);
       ret = esp_tls_conn_read(tls, (char *)buf, len);
 
       if (ret == ESP_TLS_ERR_SSL_WANT_WRITE  || ret == ESP_TLS_ERR_SSL_WANT_READ) {
@@ -144,7 +123,6 @@ static void https_get_request(const char *WEB_SERVER_URL, const char *REQUEST) {
       len = ret;
       ESP_LOGD(TAG, "%d bytes read", len);
 #ifdef PRINT_ALL
-      /* Print response directly to stdout as it is read */
       for (int i = 0; i < len; i++)
          putchar(buf[i]);
 #endif
@@ -155,7 +133,47 @@ cleanup:
 }
 #endif
 
+static void init_ulp_program(void) {
+   esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,
+         (ulp_main_bin_end - ulp_main_bin_start) / sizeof(uint32_t));
+   ESP_ERROR_CHECK(err);
+
+   // Configure ADC (same ADC channel has to be set in ULP code)
+   adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);
+   adc1_config_width(ADC_WIDTH_BIT_12);
+   adc1_ulp_enable();
+
+   // Map GPIO pin to RTC pin
+   gpio_num_t reed_gpio_num = REED_PIN;
+   int rtcio_num = rtc_io_number_get(reed_gpio_num);
+   assert(rtc_gpio_is_valid_gpio(reed_gpio_num) && "GPIO used for pulse counting must be an RTC IO");
+   printf("Using RTC pin %d for GPIO pin %d\n", rtcio_num, reed_gpio_num);
+
+   // Configure the necessary ULP variables
+   ulp_io_number = rtcio_num;
+   ulp_int_to_second_max = 1000 / ULP_WAKEUP_MS;
+   ulp_timeout_max = TIMEOUT_S * 1000 / ULP_WAKEUP_MS;
+
+   // Initialize selected GPIO as RTC IO, enable input, disable pullup and pulldown
+   rtc_gpio_init(reed_gpio_num);
+   rtc_gpio_set_direction(reed_gpio_num, RTC_GPIO_MODE_INPUT_ONLY);
+   rtc_gpio_pulldown_dis(reed_gpio_num);
+   //rtc_gpio_pullup_dis(reed_gpio_num);
+   rtc_gpio_hold_en(reed_gpio_num);
+
+   ulp_set_wakeup_period(0, ULP_WAKEUP_MS * 1000UL);
+
+   // Disconnect GPIO12 and GPIO15 to remove current drain through pullup/pulldown resistors.
+   // GPIO12 may be pulled high to select flash voltage.
+   rtc_gpio_isolate(GPIO_NUM_12);
+   rtc_gpio_isolate(GPIO_NUM_15);
+#if CONFIG_IDF_TARGET_ESP32
+   esp_deep_sleep_disable_rom_logging(); // suppress boot messages
+#endif
+}
+
 void app_main(void) {
+   // Counter for counting number of uploads since the start
    if (rtc_magic_number != MAGIC_NUMBER) {
       rtc_magic_number = MAGIC_NUMBER;
       rtc_id = 0;
@@ -165,7 +183,7 @@ void app_main(void) {
    if (cause != ESP_SLEEP_WAKEUP_ULP) {
       printf("Not ULP wakeup\n");
 
-      // calibrate 8M/256 clock against XTAL, get 8M/256 clock period
+      // check 8M/256 clock against XTAL, get 8M/256 clock period
       uint32_t rtc_8md256_period = rtc_clk_cal(RTC_CAL_8MD256, 1024);
       uint32_t rtc_fast_freq_hz = 1000000ULL * (1 << RTC_CLK_CAL_FRACT) * 256 / rtc_8md256_period;
       printf("rtc_8md256_period = %d\n", rtc_8md256_period);
@@ -192,15 +210,17 @@ void app_main(void) {
       printf("load = %d\n", load);
 
 #ifdef DO_UPLOAD
-      ESP_ERROR_CHECK(nvs_flash_init());
-      ESP_ERROR_CHECK(esp_netif_init());
-      ESP_ERROR_CHECK(esp_event_loop_create_default());
-      ESP_ERROR_CHECK(wifi_connect());
+      ESP_ERROR_CHECK( nvs_flash_init() );
+      ESP_ERROR_CHECK( esp_netif_init() );
+      ESP_ERROR_CHECK( esp_event_loop_create_default() );
+      ESP_ERROR_CHECK( wifi_connect() );
 
+      // Get the current RSSI value
       wifi_ap_record_t ap;
       esp_wifi_sta_get_ap_info(&ap);
       printf("rssi = %d\n", ap.rssi);
 
+      // Get the MAC for logging
       unsigned char mac[6] = {0};
       char mac_str[6*2+5+1];
       esp_efuse_mac_get_default(mac);
@@ -208,6 +228,7 @@ void app_main(void) {
       sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0] ,mac[1] ,mac[2] ,mac[3] ,mac[4] ,mac[5]);
       printf("mac = %s\n", mac_str);
    	
+      // Construct the arguments, whole URL and the HTTP request
       char params[128];
       sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s", 
             rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 0, ap.rssi, mac_str);
@@ -225,59 +246,7 @@ void app_main(void) {
       rtc_id++;
    }
    printf("Entering deep sleep\n\n");
-   start_ulp_program();
+   ESP_ERROR_CHECK( ulp_run(&ulp_entry - RTC_SLOW_MEM) );
    ESP_ERROR_CHECK( esp_sleep_enable_ulp_wakeup() );
    esp_deep_sleep_start();
-}
-
-static void init_ulp_program(void) {
-   esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,
-         (ulp_main_bin_end - ulp_main_bin_start) / sizeof(uint32_t));
-   ESP_ERROR_CHECK(err);
-
-   /* Configure ADC channel */
-   /* Note: when changing channel here, also change 'adc_channel' constant
-      in adc.S */
-   adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);
-#if CONFIG_IDF_TARGET_ESP32
-   adc1_config_width(ADC_WIDTH_BIT_12);
-#elif CONFIG_IDF_TARGET_ESP32S2
-   adc1_config_width(ADC_WIDTH_BIT_13);
-#endif
-   adc1_ulp_enable();
-
-   /* GPIO used for pulse counting. */
-   gpio_num_t gpio_num = REED_PIN;
-   int rtcio_num = rtc_io_number_get(gpio_num);
-   assert(rtc_gpio_is_valid_gpio(gpio_num) && "GPIO used for pulse counting must be an RTC IO");
-   printf("Using RTC pin %d for GPIO pin %d\n", rtcio_num, gpio_num);
-
-   ulp_io_number = rtcio_num;
-   ulp_int_to_second_max = 1000 / ULP_WAKEUP_MS;
-   ulp_timeout_max = TIMEOUT_S * 1000 / ULP_WAKEUP_MS;
-
-   /* Initialize selected GPIO as RTC IO, enable input, disable pullup and pulldown */
-   rtc_gpio_init(gpio_num);
-   rtc_gpio_set_direction(gpio_num, RTC_GPIO_MODE_INPUT_ONLY);
-   rtc_gpio_pulldown_dis(gpio_num);
-   //rtc_gpio_pullup_dis(gpio_num);
-   rtc_gpio_hold_en(gpio_num);
-
-   ulp_set_wakeup_period(0, ULP_WAKEUP_MS * 1000UL);
-
-   /* Disconnect GPIO12 and GPIO15 to remove current drain through
-    * pullup/pulldown resistors.
-    * GPIO12 may be pulled high to select flash voltage.
-    */
-   rtc_gpio_isolate(GPIO_NUM_12);
-   rtc_gpio_isolate(GPIO_NUM_15);
-#if CONFIG_IDF_TARGET_ESP32
-   esp_deep_sleep_disable_rom_logging(); // suppress boot messages
-#endif
-}
-
-static void start_ulp_program(void) {
-   /* Start the program */
-   esp_err_t err = ulp_run(&ulp_entry - RTC_SLOW_MEM);
-   ESP_ERROR_CHECK(err);
 }
