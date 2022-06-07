@@ -30,8 +30,8 @@
 	.set adc_channel, 6
 
 	/* Configure the number of ADC samples to average on each measurement.
-	   For convenience, make it a power of 2. */
-	.set adc_oversampling_factor_log, 2
+	   For convenience, make it a power of 3. */
+	.set adc_oversampling_factor_log, 3
 	.set adc_oversampling_factor, (1 << adc_oversampling_factor_log)
 
 	/* Define variables, which go into .bss section (zero-initialized data) */
@@ -101,6 +101,9 @@ last_result:
 	.text
 	.global entry
 entry:
+
+	//WRITE_RTC_REG(RTC_IO_TOUCH_PAD2_REG, RTC_IO_TOUCH_PAD2_HOLD_S, 1, 0)
+	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TS_REG, RTC_GPIO_OUT_DATA_W1TS_S + 12, 1, 1)	// set debug pin
 
 read_io:
 	/* Load io_number */
@@ -280,6 +283,9 @@ overflow:
 
 	.global exit
 exit:
+	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TC_REG, RTC_GPIO_OUT_DATA_W1TC_S + 12, 1, 1)	// clear debug pin
+	//WRITE_RTC_REG(RTC_IO_TOUCH_PAD2_REG, RTC_IO_TOUCH_PAD2_HOLD_S, 1, 1)
+
 	halt
 
 	.global wake_up

@@ -161,6 +161,10 @@ static void init_ulp_program(void) {
    //rtc_gpio_pullup_dis(reed_gpio_num);
    rtc_gpio_hold_en(reed_gpio_num);
 
+   //rtc_gpio_init(GPIO_NUM_2);
+   //rtc_gpio_set_direction(GPIO_NUM_2, RTC_GPIO_MODE_OUTPUT_ONLY);
+   //rtc_gpio_pulldown_dis(GPIO_NUM_2);
+
    ulp_set_wakeup_period(0, ULP_WAKEUP_MS * 1000UL);
 
    // Disconnect GPIO12 and GPIO15 to remove current drain through pullup/pulldown resistors.
@@ -225,7 +229,7 @@ void app_main(void) {
       char mac_str[6*2+5+1];
       esp_efuse_mac_get_default(mac);
       esp_read_mac(mac, ESP_MAC_WIFI_STA);
-      sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0] ,mac[1] ,mac[2] ,mac[3] ,mac[4] ,mac[5]);
+      sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
       printf("mac = %s\n", mac_str);
    	
       // Construct the arguments, whole URL and the HTTP request
