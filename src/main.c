@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "esp_sleep.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -35,9 +38,13 @@
 #define TIMEOUT_S       10
 
 // Stuff related to the Google Script
-#define API_TOKEN "xyz"
+#define API_TOKEN "asd"
 #define WEB_SERVER "script.google.com"
 #define WEB_URL "https://script.google.com/macros/s/" API_TOKEN "/exec?%s"
+
+// Stuff related to OTA
+#define OTA_TOKEN "jkl"
+#define OTA_URL "https://drive.google.com/uc?export=download&id=" OTA_TOKEN
 
 #ifdef DO_UPLOAD
 #include "esp_wifi.h"
@@ -56,6 +63,14 @@
 #include "esp_tls.h"
 #include "sdkconfig.h"
 #include "esp_crt_bundle.h"
+
+#include "esp_ota_ops.h"
+#include "esp_https_ota.h"
+
+// openssl s_client -showcerts -connect drive.google.com:443 < /dev/null
+// Copy the last cert one to server_cert.pem
+extern const uint8_t server_cert_pem_start[] asm("_binary_server_cert_pem_start");
+bool ota_done = false;
 
 #include "wifi.h"
 
@@ -176,6 +191,53 @@ static void init_ulp_program(void) {
 #endif
 }
 
+void ota_task(void *pvParameter) {
+   esp_http_client_config_t config = {
+      .url = OTA_URL,
+      .cert_pem = (char *)server_cert_pem_start
+   };
+   esp_err_t ret = esp_https_ota(&config);
+   if (ret == ESP_OK) {
+      esp_restart();
+   } else {
+      printf("esp_https_ota failed with error (%d)\n", ret);
+   }
+   ota_done = true;
+   vTaskDelete(NULL);
+}
+
+void advanced_ota_task(void *pvParameter) {
+   esp_http_client_config_t config = {
+      .url = OTA_URL,
+      .cert_pem = (char *)server_cert_pem_start,
+      .timeout_ms = 7000,
+      .keep_alive_enable = true,
+   };
+
+   esp_https_ota_config_t ota_config = {.http_config = &config};
+
+   esp_https_ota_handle_t https_ota_handle = NULL;
+   esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
+   if (err != ESP_OK) {
+      ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed (%d)", err);
+      goto exit;
+   }
+
+   esp_app_desc_t desc;
+   err = esp_https_ota_get_img_desc(https_ota_handle, &desc);
+   if (err != ESP_OK) {
+      ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed (%d)", err);
+   } else {
+      printf("magic_word = %x, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
+            desc.magic_word, desc.version, desc.project_name, desc.time, desc.date, desc.idf_ver);
+   }
+   esp_https_ota_abort(https_ota_handle);
+
+exit:
+   ota_done = true;
+   vTaskDelete(NULL);
+}
+
 void app_main(void) {
    // Counter for counting number of uploads since the start
    if (rtc_magic_number != MAGIC_NUMBER) {
@@ -192,6 +254,10 @@ void app_main(void) {
       uint32_t rtc_fast_freq_hz = 1000000ULL * (1 << RTC_CLK_CAL_FRACT) * 256 / rtc_8md256_period;
       printf("rtc_8md256_period = %d\n", rtc_8md256_period);
       printf("rtc_fast_freq_hz = %d\n", rtc_fast_freq_hz);
+
+      const esp_app_desc_t *desc = esp_ota_get_app_description();
+      printf("magic_word = %x, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
+            desc->magic_word, desc->version, desc->project_name, desc->time, desc->date, desc->idf_ver);
 
       init_ulp_program();
    } else {
@@ -214,7 +280,16 @@ void app_main(void) {
       printf("load = %d\n", load);
 
 #ifdef DO_UPLOAD
-      ESP_ERROR_CHECK( nvs_flash_init() );
+      esp_err_t err = nvs_flash_init();
+      if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+         // 1.OTA app partition table has a smaller NVS partition size than the non-OTA
+         // partition table. This size mismatch may cause NVS initialization to fail.
+         // 2.NVS partition contains data in new format and cannot be recognized by this version of code.
+         // If this happens, we erase NVS partition and initialize NVS again.
+         ESP_ERROR_CHECK(nvs_flash_erase());
+         err = nvs_flash_init();
+      }
+      ESP_ERROR_CHECK( err );
       ESP_ERROR_CHECK( esp_netif_init() );
       ESP_ERROR_CHECK( esp_event_loop_create_default() );
       ESP_ERROR_CHECK( wifi_connect() );
@@ -235,7 +310,7 @@ void app_main(void) {
       // Construct the arguments, whole URL and the HTTP request
       char params[128];
       sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 0, ap.rssi, mac_str);
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 4000, ap.rssi, mac_str);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 
@@ -246,6 +321,11 @@ void app_main(void) {
 #endif
 
       https_get_request(url, request);
+
+      //xTaskCreate(&advanced_ota_task, "advanced_ota_task", 1024 * 8, NULL, 5, NULL);
+      //xTaskCreate(&ota_task, "ota_task", 1024 * 8, NULL, 5, NULL);
+      //while(!ota_done);
+
 #endif
       rtc_id++;
    }
