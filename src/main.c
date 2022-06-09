@@ -34,26 +34,18 @@
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-#define MBEDTLS_CONFIG_FILE "mbedtls/esp_config.h"  // Hack for new esp-idf & tls
-#include "esp_tls.h"
-#include "sdkconfig.h"
-#include "esp_crt_bundle.h"
-
-#include "esp_ota_ops.h"
-#include "esp_https_ota.h"
-
-// openssl s_client -showcerts -connect drive.google.com:443 < /dev/null
-// Copy the last cert one to server_cert.pem
-extern const uint8_t server_cert_pem_start[] asm("_binary_server_cert_pem_start");
 bool ota_done = false;
 
-#include "wifi.h"
+#include "esp_ota_ops.h"
 
-static const char *TAG = "main";
+#include "wifi.h"
+#include "upload.h"
+#include "ota.h"
+
+//static const char *TAG = "main";
 
 static char url[256];
 static char request[512];
-static char buf[512];
 
 static const char REQUEST_FMT[] = "GET %s HTTP/1.1\r\n"
                               "Host: "WEB_SERVER"\r\n"
@@ -68,60 +60,6 @@ extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
 
 RTC_DATA_ATTR uint32_t rtc_magic_number;  // To see whether RCT mem is valid
 RTC_DATA_ATTR uint8_t rtc_id;             // Measurement ID
-
-#ifdef DO_UPLOAD
-static void https_get_request(const char *WEB_SERVER_URL, const char *REQUEST) {
-   int ret, len;
-
-   esp_tls_cfg_t cfg = {.crt_bundle_attach = esp_crt_bundle_attach};
-   esp_tls_t *tls = esp_tls_conn_http_new(WEB_SERVER_URL, &cfg);
-
-   if (tls != NULL) {
-      ESP_LOGI(TAG, "Connection established...");
-   } else {
-      ESP_LOGE(TAG, "Connection failed...");
-      goto cleanup;
-   }
-
-   size_t written_bytes = 0;
-   do {
-      ret = esp_tls_conn_write(tls, REQUEST + written_bytes, strlen(REQUEST) - written_bytes);
-      if (ret >= 0) {
-         ESP_LOGI(TAG, "%d bytes written", ret);
-         written_bytes += ret;
-      } else if (ret != ESP_TLS_ERR_SSL_WANT_READ  && ret != ESP_TLS_ERR_SSL_WANT_WRITE) {
-         ESP_LOGE(TAG, "esp_tls_conn_write  returned: [0x%02X](%s)", ret, esp_err_to_name(ret));
-         goto cleanup;
-      }
-   } while (written_bytes < strlen(REQUEST));
-
-   ESP_LOGI(TAG, "Reading HTTP response...");
-   do {
-      len = sizeof(buf);
-      ret = esp_tls_conn_read(tls, (char *)buf, len);
-
-      if (ret == ESP_TLS_ERR_SSL_WANT_WRITE  || ret == ESP_TLS_ERR_SSL_WANT_READ) {
-         continue;
-      } else if (ret < 0) {
-         ESP_LOGE(TAG, "esp_tls_conn_read  returned [-0x%02X](%s)", -ret, esp_err_to_name(ret));
-         break;
-      } else if (ret == 0) {
-         ESP_LOGI(TAG, "connection closed");
-         break;
-      }
-
-      len = ret;
-      ESP_LOGD(TAG, "%d bytes read", len);
-#ifdef PRINT_ALL
-      for (int i = 0; i < len; i++)
-         putchar(buf[i]);
-#endif
-   } while (1);
-
-cleanup:
-   esp_tls_conn_destroy(tls);
-}
-#endif
 
 static void init_ulp_program(void) {
    esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,
@@ -164,53 +102,6 @@ static void init_ulp_program(void) {
 #if CONFIG_IDF_TARGET_ESP32
    esp_deep_sleep_disable_rom_logging(); // suppress boot messages
 #endif
-}
-
-void ota_task(void *pvParameter) {
-   esp_http_client_config_t config = {
-      .url = OTA_URL,
-      .cert_pem = (char *)server_cert_pem_start
-   };
-   esp_err_t ret = esp_https_ota(&config);
-   if (ret == ESP_OK) {
-      esp_restart();
-   } else {
-      printf("esp_https_ota failed with error (%d)\n", ret);
-   }
-   ota_done = true;
-   vTaskDelete(NULL);
-}
-
-void advanced_ota_task(void *pvParameter) {
-   esp_http_client_config_t config = {
-      .url = OTA_URL,
-      .cert_pem = (char *)server_cert_pem_start,
-      .timeout_ms = 7000,
-      .keep_alive_enable = true,
-   };
-
-   esp_https_ota_config_t ota_config = {.http_config = &config};
-
-   esp_https_ota_handle_t https_ota_handle = NULL;
-   esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
-   if (err != ESP_OK) {
-      ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed (%d)", err);
-      goto exit;
-   }
-
-   esp_app_desc_t desc;
-   err = esp_https_ota_get_img_desc(https_ota_handle, &desc);
-   if (err != ESP_OK) {
-      ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed (%d)", err);
-   } else {
-      printf("magic_word = %x, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
-            desc.magic_word, desc.version, desc.project_name, desc.time, desc.date, desc.idf_ver);
-   }
-   esp_https_ota_abort(https_ota_handle);
-
-exit:
-   ota_done = true;
-   vTaskDelete(NULL);
 }
 
 void app_main(void) {
