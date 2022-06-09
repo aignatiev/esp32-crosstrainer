@@ -19,32 +19,7 @@
 #include "esp32/ulp.h"
 #include "ulp_main.h"
 
-// This one defines whether there is any network stuff included (for debugging ULP)
-#define DO_UPLOAD
-
-// This one defines whether all debug prints are printed (for debugging)
-#define PRINT_ALL
-
-// Magic number to check whether the RTC memory is intact
-#define MAGIC_NUMBER    0xdeadbeef
-
-// Which pin REED switch is connected to
-#define REED_PIN        GPIO_NUM_0
-
-// ULP wakeup period in ms
-#define ULP_WAKEUP_MS   10
-
-// Excercise timeout in seconds
-#define TIMEOUT_S       10
-
-// Stuff related to the Google Script
-#define API_TOKEN "asd"
-#define WEB_SERVER "script.google.com"
-#define WEB_URL "https://script.google.com/macros/s/" API_TOKEN "/exec?%s"
-
-// Stuff related to OTA
-#define OTA_TOKEN "jkl"
-#define OTA_URL "https://drive.google.com/uc?export=download&id=" OTA_TOKEN
+#include "defines.h"
 
 #ifdef DO_UPLOAD
 #include "esp_wifi.h"
@@ -262,12 +237,14 @@ void app_main(void) {
       init_ulp_program();
    } else {
       printf("Deep sleep wakeup\n");
+      ulp_temperature &= UINT16_MAX;
       ulp_last_result &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
       ulp_revs &= UINT16_MAX;
       ulp_load_hi &= UINT16_MAX;
       ulp_load_lo &= UINT16_MAX;
       uint32_t load = ulp_load_hi * 1000UL + ulp_load_lo;
+      printf("temperature = %d\n", ulp_temperature);
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
       printf("duration = %d\n", ulp_duration);
@@ -309,8 +286,8 @@ void app_main(void) {
    	
       // Construct the arguments, whole URL and the HTTP request
       char params[128];
-      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 4000, ap.rssi, mac_str);
+      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 4000, ap.rssi, mac_str, ulp_temperature);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 

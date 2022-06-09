@@ -3,9 +3,7 @@
 
 #include "esp_err.h"
 #include "esp_netif.h"
-
-#define WIFI_SSID       "ssid"
-#define WIFI_PASSWORD   "pwd"
+#include "defines.h"
 
 
 esp_err_t wifi_connect(void);

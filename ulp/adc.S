@@ -37,6 +37,11 @@
 	/* Define variables, which go into .bss section (zero-initialized data) */
 	.bss
 
+	// Latest temperature measurement stored here
+	.global temperature
+temperature:
+	.long 0
+
 	// RTC IO number used to sample the input signal.
 	.global io_number
 io_number:
@@ -104,6 +109,10 @@ entry:
 
 	//WRITE_RTC_REG(RTC_IO_TOUCH_PAD2_REG, RTC_IO_TOUCH_PAD2_HOLD_S, 1, 0)
 	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TS_REG, RTC_GPIO_OUT_DATA_W1TS_S + 12, 1, 1)	// set debug pin
+
+	tsens r0, 1000
+	move r1, temperature
+	st r0, r1, 0
 
 read_io:
 	/* Load io_number */
