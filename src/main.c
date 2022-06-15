@@ -67,7 +67,8 @@ static void init_ulp_program(void) {
    ESP_ERROR_CHECK(err);
 
    // Configure ADC (same ADC channel has to be set in ULP code)
-   adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);
+   adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);   // For load measurement
+   adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_2_5);   // For V_bat measurement
    adc1_config_width(ADC_WIDTH_BIT_12);
    adc1_ulp_enable();
 
@@ -92,6 +93,9 @@ static void init_ulp_program(void) {
    //rtc_gpio_init(GPIO_NUM_2);
    //rtc_gpio_set_direction(GPIO_NUM_2, RTC_GPIO_MODE_OUTPUT_ONLY);
    //rtc_gpio_pulldown_dis(GPIO_NUM_2);
+   //rtc_gpio_init(GPIO_NUM_4);
+   //rtc_gpio_set_direction(GPIO_NUM_4, RTC_GPIO_MODE_OUTPUT_ONLY);
+   //rtc_gpio_pulldown_dis(GPIO_NUM_4);
 
    ulp_set_wakeup_period(0, ULP_WAKEUP_MS * 1000UL);
 
@@ -128,14 +132,18 @@ void app_main(void) {
       init_ulp_program();
    } else {
       printf("Deep sleep wakeup\n");
-      ulp_temperature &= UINT16_MAX;
+      //ulp_temperature &= UINT16_MAX;
+      ulp_vbat &= UINT16_MAX;
       ulp_last_result &= UINT16_MAX;
       ulp_duration &= UINT16_MAX;
       ulp_revs &= UINT16_MAX;
       ulp_load_hi &= UINT16_MAX;
       ulp_load_lo &= UINT16_MAX;
       uint32_t load = ulp_load_hi * 1000UL + ulp_load_lo;
-      printf("temperature = %d\n", ulp_temperature);
+      uint32_t vbat = ulp_vbat * 100 / 4096;
+      //printf("temperature = %d\n", ulp_temperature);
+      printf("vbat_adc = %d\n", ulp_vbat);
+      printf("vbat = %d\n", vbat);
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
       printf("duration = %d\n", ulp_duration);
@@ -178,7 +186,7 @@ void app_main(void) {
       // Construct the arguments, whole URL and the HTTP request
       char params[128];
       sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 4000, ap.rssi, mac_str, ulp_temperature);
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 4000, ap.rssi, mac_str, 0);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 

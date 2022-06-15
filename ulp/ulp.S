@@ -27,7 +27,10 @@
 #include "soc/sens_reg.h"
 
 	/* ADC1 channel 6, GPIO34 */
-	.set adc_channel, 6
+	.set load_adc_channel, 6
+
+	/* ADC1 channel 7, GPIO35 */
+	.set vbat_adc_channel, 7
 
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 3. */
@@ -37,9 +40,24 @@
 	/* Define variables, which go into .bss section (zero-initialized data) */
 	.bss
 
+	// Delay counter for measuring temperature & voltage
+	.global meas_count
+meas_count:
+	.long 0
+
+	// Delay counter max for measuring temperature & voltage
+	.global meas_max
+meas_max:
+	.long 0
+
 	// Latest temperature measurement stored here
 	.global temperature
 temperature:
+	.long 0
+
+	// Latest vbat measurement stored here
+	.global vbat
+vbat:
 	.long 0
 
 	// RTC IO number used to sample the input signal.
@@ -109,10 +127,39 @@ entry:
 
 	//WRITE_RTC_REG(RTC_IO_TOUCH_PAD2_REG, RTC_IO_TOUCH_PAD2_HOLD_S, 1, 0)
 	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TS_REG, RTC_GPIO_OUT_DATA_W1TS_S + 12, 1, 1)	// set debug pin
+	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TS_REG, RTC_GPIO_OUT_DATA_W1TS_S + 10, 1, 1)	// set debug pin
 
-	tsens r0, 1000
-	move r1, temperature
-	st r0, r1, 0
+// Enable TSENS
+	//WRITE_RTC_REG(SENS_SAR_MEAS_WAIT2_REG, SENS_FORCE_XPD_SAR_S, 2, SENS_FORCE_XPD_SAR_PU)
+
+meas_temp:
+	//tsens r2, 1000
+	//move r3, temperature
+	//st r2, r3, 0
+
+	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TC_REG, RTC_GPIO_OUT_DATA_W1TC_S + 10, 1, 1)	// clear debug pin
+
+init_vbat_measure:
+	/* do measurements using ADC */
+	/* r0 will be used as accumulator */
+	move r0, 0
+	/* initialize the loop counter */
+	stage_rst
+
+vbat_measure:
+	/* measure and add value to accumulator */
+	adc r1, 0, vbat_adc_channel + 1
+	add r0, r0, r1
+	/* increment loop counter and check exit condition */
+	stage_inc 1
+	jumps vbat_measure, adc_oversampling_factor, lt
+
+	/* divide accumulator by adc_oversampling_factor.
+	   Since it is chosen as a power of two, use right shift */
+	rsh r0, r0, adc_oversampling_factor_log
+
+	move r3, vbat
+	st r0, r3, 0	// store result
 
 read_io:
 	/* Load io_number */
@@ -241,7 +288,7 @@ do_stuff:
 	ld r2, r2, 0
 	sub r0, r0, r2	// check if we have a second
 
-	jump init_measure, ov
+	jump init_load_measure, ov
 
 	move r2, 0
 	st r2, r1, 0	// clear int_to_second counter
@@ -251,20 +298,20 @@ do_stuff:
 	add r1, r1, 1
 	st r1, r0, 0	// increment duration
 
-init_measure:
+init_load_measure:
 	/* do measurements using ADC */
 	/* r0 will be used as accumulator */
 	move r0, 0
 	/* initialize the loop counter */
 	stage_rst
 
-measure:
+load_measure:
 	/* measure and add value to accumulator */
-	adc r1, 0, adc_channel + 1
+	adc r1, 0, load_adc_channel + 1
 	add r0, r0, r1
 	/* increment loop counter and check exit condition */
 	stage_inc 1
-	jumps measure, adc_oversampling_factor, lt
+	jumps load_measure, adc_oversampling_factor, lt
 
 	/* divide accumulator by adc_oversampling_factor.
 	   Since it is chosen as a power of two, use right shift */
@@ -303,6 +350,9 @@ wake_up:
 	READ_RTC_FIELD(RTC_CNTL_LOW_POWER_ST_REG, RTC_CNTL_RDY_FOR_WAKEUP)
 	and r0, r0, 1
 	jump exit, eq
+
+	//WRITE_RTC_REG(RTC_GPIO_OUT_W1TC_REG, RTC_GPIO_OUT_DATA_W1TC_S + 12, 1, 1)	// clear debug pin
+	//WRITE_RTC_REG(RTC_IO_TOUCH_PAD2_REG, RTC_IO_TOUCH_PAD2_HOLD_S, 1, 1)
 
 	/* Wake up the SoC, end program */
 	wake
