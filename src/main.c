@@ -68,7 +68,7 @@ static void init_ulp_program(void) {
 
    // Configure ADC (same ADC channel has to be set in ULP code)
    adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);   // For load measurement
-   adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_2_5);   // For V_bat measurement
+   adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_0);     // For V_bat measurement
    adc1_config_width(ADC_WIDTH_BIT_12);
    adc1_ulp_enable();
 
@@ -140,10 +140,12 @@ void app_main(void) {
       ulp_load_hi &= UINT16_MAX;
       ulp_load_lo &= UINT16_MAX;
       uint32_t load = ulp_load_hi * 1000UL + ulp_load_lo;
-      uint32_t vbat = ulp_vbat * 100 / 4096;
+      uint32_t v_adc = ulp_vbat * VREF / 4095;
+      uint32_t v_bat = v_adc * (R1_VAL + R2_VAL) / R2_VAL;
       //printf("temperature = %d\n", ulp_temperature);
-      printf("vbat_adc = %d\n", ulp_vbat);
-      printf("vbat = %d\n", vbat);
+      printf("adc = %d\n", ulp_vbat);
+      printf("v_adc = %d\n", v_adc);
+      printf("v_bat = %d\n", v_bat);
       printf("id = %d\n", rtc_id);
       printf("last_value = %d\n", ulp_last_result);
       printf("duration = %d\n", ulp_duration);
@@ -186,7 +188,7 @@ void app_main(void) {
       // Construct the arguments, whole URL and the HTTP request
       char params[128];
       sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, 4000, ap.rssi, mac_str, 0);
+            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, v_bat, ap.rssi, mac_str, 0);
       sprintf(url, WEB_URL, params);
       sprintf(request, REQUEST_FMT, url);
 

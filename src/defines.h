@@ -31,4 +31,12 @@
 // Excercise timeout in seconds
 #define TIMEOUT_S       10
 
+// Reference voltage of the ADC
+#define VREF            1100UL
+//#define VREF            (1100UL * 4 / 3)
+
+// Voltage devision for battery voltage measurement
+#define R1_VAL          46600UL
+#define R2_VAL          9880UL
+
 #endif
