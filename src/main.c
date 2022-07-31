@@ -109,6 +109,9 @@ static void init_ulp_program(void) {
 }
 
 void app_main(void) {
+   gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+   gpio_set_level(LED_PIN, 1);
+
    // Counter for counting number of uploads since the start
    if (rtc_magic_number != MAGIC_NUMBER) {
       rtc_magic_number = MAGIC_NUMBER;
@@ -140,7 +143,7 @@ void app_main(void) {
       ulp_load_hi &= UINT16_MAX;
       ulp_load_lo &= UINT16_MAX;
       uint32_t load = ulp_load_hi * 1000UL + ulp_load_lo;
-      uint32_t v_adc = ulp_vbat * VREF / 4095;
+      uint32_t v_adc = ulp_vbat * VREF / 4096;
       uint32_t v_bat = v_adc * (R1_VAL + R2_VAL) / R2_VAL;
       //printf("temperature = %d\n", ulp_temperature);
       printf("adc = %d\n", ulp_vbat);
@@ -154,7 +157,8 @@ void app_main(void) {
       printf("load_hi = %d\n", ulp_load_hi);
       printf("load_lo = %d\n", ulp_load_lo);
       printf("load_sum = %d\n", load);
-      load /= ulp_revs;
+      if (ulp_revs)
+         load /= ulp_revs;
       printf("load = %d\n", load);
 
 #ifdef DO_UPLOAD
@@ -210,5 +214,6 @@ void app_main(void) {
    printf("Entering deep sleep\n\n");
    ESP_ERROR_CHECK( ulp_run(&ulp_entry - RTC_SLOW_MEM) );
    ESP_ERROR_CHECK( esp_sleep_enable_ulp_wakeup() );
+   gpio_set_level(LED_PIN, 0);
    esp_deep_sleep_start();
 }

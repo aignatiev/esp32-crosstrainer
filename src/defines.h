@@ -25,6 +25,9 @@
 // Which pin REED switch is connected to
 #define REED_PIN        GPIO_NUM_0
 
+// Which pin activity LED is connected to
+#define LED_PIN         GPIO_NUM_2
+
 // ULP wakeup period in ms
 #define ULP_WAKEUP_MS   10
 
