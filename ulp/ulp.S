@@ -32,6 +32,9 @@
 	/* ADC1 channel 7, GPIO35 */
 	.set vbat_adc_channel, 7
 
+	.set vbat_lo, (4000*10/57)*4096/1100
+	.set vbat_hi, (5500*10/57)*4096/1100
+
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 3. */
 	.set adc_oversampling_factor_log, 3
@@ -58,6 +61,11 @@ temperature:
 	// Latest vbat measurement stored here
 	.global vbat
 vbat:
+	.long 0
+
+	// Set when battery is detected to be low (until the batteries are swapped and the device restarted)
+	.global battery_low
+battery_low:
 	.long 0
 
 	// RTC IO number used to sample the input signal.
@@ -160,6 +168,34 @@ vbat_measure:
 
 	move r3, vbat
 	st r0, r3, 0	// store result
+
+check_active0:
+	move r3, active
+	ld r1, r3, 0
+	and r1, r1, 1	// check if active
+	jump check_battery, eq
+	jump read_io
+
+check_battery:
+	move r3, battery_low
+	ld r1, r3, 0
+	and r1, r1, 1	// check if battery already low
+	jump battery_is_high, eq
+
+battery_is_low:
+	jumpr read_io, vbat_hi, lt
+	move r2, 0
+	st r2, r3, 0	// new batteries inserted
+	jump read_io
+
+battery_is_high:
+	jumpr read_io, vbat_lo, gt
+	move r2, 1
+	st r2, r3, 0	// battery is running low
+	move r2, 0
+	move r3, revs
+	st r2, r3, 0	// clear revolution counter
+	jump wake_up
 
 read_io:
 	/* Load io_number */
