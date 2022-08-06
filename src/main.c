@@ -68,7 +68,7 @@ static void init_ulp_program(void) {
 
    // Configure ADC (same ADC channel has to be set in ULP code)
    adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);   // For load measurement
-   adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_0);     // For V_bat measurement
+   adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_2_5);     // For V_bat measurement
    adc1_config_width(ADC_WIDTH_BIT_12);
    adc1_ulp_enable();
 
