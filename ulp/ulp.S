@@ -32,8 +32,8 @@
 	/* ADC1 channel 7, GPIO35 */
 	.set vbat_adc_channel, 7
 
-	.set vbat_lo, (4000*10/57)*4096/1100
-	.set vbat_hi, (5500*10/57)*4096/1100
+	.set vbat_lo, (4000*10/57)*4096/(1100UL * 4 / 3)
+	.set vbat_hi, (5500*10/57)*4096/(1100UL * 4 / 3)
 
 	/* Configure the number of ADC samples to average on each measurement.
 	   For convenience, make it a power of 3. */
@@ -172,9 +172,8 @@ vbat_measure:
 check_active0:
 	move r3, active
 	ld r1, r3, 0
-	and r1, r1, 1	// check if active
-	jump check_battery, eq
-	jump read_io
+	sub r1, r1, 1	// check if active
+	jump read_io//, eq
 
 check_battery:
 	move r3, battery_low
