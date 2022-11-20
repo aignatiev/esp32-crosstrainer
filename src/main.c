@@ -42,7 +42,7 @@ bool ota_done = false;
 #include "upload.h"
 #include "ota.h"
 
-//static const char *TAG = "main";
+static const char *TAG = "main";
 
 static char url[256];
 static char request[512];
@@ -58,8 +58,19 @@ static const char REQUEST_FMT[] = "GET %s HTTP/1.1\r\n"
 extern const uint8_t ulp_main_bin_start[] asm("_binary_ulp_main_bin_start");
 extern const uint8_t ulp_main_bin_end[]   asm("_binary_ulp_main_bin_end");
 
+typedef struct {
+	uint8_t id;
+	uint16_t duration;
+	uint16_t revolutions;
+	uint32_t load;
+	uint32_t v_bat;
+	int8_t rssi;
+} meas_t;
+
 RTC_DATA_ATTR uint32_t rtc_magic_number;  // To see whether RCT mem is valid
 RTC_DATA_ATTR uint8_t rtc_id;             // Measurement ID
+RTC_DATA_ATTR meas_t meas[MEAS_COUNT];
+RTC_DATA_ATTR uint8_t meas_rd, meas_wr;
 
 static void init_ulp_program(void) {
    esp_err_t err = ulp_load_binary(0, ulp_main_bin_start,
@@ -108,14 +119,32 @@ static void init_ulp_program(void) {
 #endif
 }
 
+static void power_off() {
+   rtc_id++;
+   printf("Entering deep sleep\n\n");
+   ESP_ERROR_CHECK( ulp_run(&ulp_entry - RTC_SLOW_MEM) );
+   ESP_ERROR_CHECK( esp_sleep_enable_ulp_wakeup() );
+   gpio_set_level(LED_PIN, 0);
+   esp_deep_sleep_start();
+}
+
+static void timeout_task(void* arg) {
+   vTaskDelay(1000ULL * UPLOAD_TIMEOUT_S / portTICK_PERIOD_MS);
+   ESP_LOGW(TAG, "Timeout! meas_wr: %0d, meas_rd: %0d", meas_wr, meas_rd);
+   power_off();
+}
+
 void app_main(void) {
    gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
    gpio_set_level(LED_PIN, 1);
+   xTaskCreate(&timeout_task, "timeout", 4096, NULL, 7, NULL);
 
    // Counter for counting number of uploads since the start
    if (rtc_magic_number != MAGIC_NUMBER) {
       rtc_magic_number = MAGIC_NUMBER;
       rtc_id = 0;
+      meas_rd = 0;
+      meas_wr = 0;
    }
 
    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
@@ -161,6 +190,23 @@ void app_main(void) {
          load /= ulp_revs;
       printf("load = %d\n", load);
 
+      if ((meas_wr + 1) % MEAS_COUNT == meas_rd) {
+         ESP_LOGW(TAG, "Data storage full, discarding data. meas_rd: %0d, meas_wr: %0d", meas_rd, meas_wr);
+      } else {
+         meas[meas_wr].id = rtc_id;
+         meas[meas_wr].duration = ulp_duration;
+         meas[meas_wr].revolutions = ulp_revs;
+         meas[meas_wr].load = load;
+         meas[meas_wr].v_bat = v_bat;
+         ESP_LOGI(TAG, "Data stored with index %0d", meas_wr);
+         meas_wr = (meas_wr + 1) % MEAS_COUNT;
+      }
+
+      if (v_bat < LOW_BATTERY_MV) {
+         ESP_LOGW(TAG, "Battery voltage low, skipping upload! v_bat: %0d", v_bat);
+         power_off();
+      }
+
 #ifdef DO_UPLOAD
       esp_err_t err = nvs_flash_init();
       if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -189,31 +235,29 @@ void app_main(void) {
       sprintf(mac_str, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
       printf("mac = %s\n", mac_str);
    	
-      // Construct the arguments, whole URL and the HTTP request
-      char params[128];
-      sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
-            rtc_id, ulp_duration, TIMEOUT_S, ulp_revs, load, v_bat, ap.rssi, mac_str, 0);
-      sprintf(url, WEB_URL, params);
-      sprintf(request, REQUEST_FMT, url);
+      while (meas_wr != meas_rd) {
+         // Construct the arguments, whole URL and the HTTP request
+         char params[128];
+         sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
+               meas[meas_rd].id, meas[meas_rd].duration, TIMEOUT_S, meas[meas_rd].revolutions,
+               meas[meas_rd].load, meas[meas_rd].v_bat, ap.rssi, mac_str, 0);
+         sprintf(url, WEB_URL, params);
+         sprintf(request, REQUEST_FMT, url);
 
 #ifdef PRINT_ALL
-      printf("params=%s\n", params);
-      printf("url=%s\n", url);
-      printf("request=%s\n", request);
+         printf("params=%s\n", params);
+         printf("url=%s\n", url);
+         printf("request=%s\n", request);
 #endif
 
-      https_get_request(url, request);
+         https_get_request(url, request);
+         meas_rd = (meas_rd + 1) % MEAS_COUNT;
+      }
 
       //xTaskCreate(&advanced_ota_task, "advanced_ota_task", 1024 * 8, NULL, 5, NULL);
       //xTaskCreate(&ota_task, "ota_task", 1024 * 8, NULL, 5, NULL);
       //while(!ota_done);
-
 #endif
-      rtc_id++;
    }
-   printf("Entering deep sleep\n\n");
-   ESP_ERROR_CHECK( ulp_run(&ulp_entry - RTC_SLOW_MEM) );
-   ESP_ERROR_CHECK( esp_sleep_enable_ulp_wakeup() );
-   gpio_set_level(LED_PIN, 0);
-   esp_deep_sleep_start();
+   power_off();
 }

@@ -34,6 +34,15 @@
 // Excercise timeout in seconds
 #define TIMEOUT_S       10
 
+// Combined connection & upload timeout in seconds
+#define UPLOAD_TIMEOUT_S       15
+
+// Low battery treshold in mV
+#define LOW_BATTERY_MV  4000
+
+// How many measurements are saved before discarding (in case of no WiFi)
+#define MEAS_COUNT      16
+
 // Reference voltage of the ADC
 //#define VREF            1100UL
 #define VREF            (1100UL * 4 / 3)
