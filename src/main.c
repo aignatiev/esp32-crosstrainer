@@ -153,9 +153,11 @@ void app_main(void) {
 
       // check 8M/256 clock against XTAL, get 8M/256 clock period
       uint32_t rtc_8md256_period = rtc_clk_cal(RTC_CAL_8MD256, 1024);
-      uint32_t rtc_fast_freq_hz = 1000000ULL * (1 << RTC_CLK_CAL_FRACT) * 256 / rtc_8md256_period;
       printf("rtc_8md256_period = %d\n", rtc_8md256_period);
-      printf("rtc_fast_freq_hz = %d\n", rtc_fast_freq_hz);
+      if (rtc_8md256_period) {
+         uint32_t rtc_fast_freq_hz = 1000000ULL * (1 << RTC_CLK_CAL_FRACT) * 256 / rtc_8md256_period;
+         printf("rtc_fast_freq_hz = %d\n", rtc_fast_freq_hz);
+      }
 
       const esp_app_desc_t *desc = esp_ota_get_app_description();
       printf("magic_word = %x, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
