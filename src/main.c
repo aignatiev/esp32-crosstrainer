@@ -44,6 +44,7 @@ bool ota_done = false;
 
 static const char *TAG = "main";
 
+static char params[128];
 static char url[256];
 static char request[512];
 
@@ -239,7 +240,6 @@ void app_main(void) {
    	
       while (meas_wr != meas_rd) {
          // Construct the arguments, whole URL and the HTTP request
-         char params[128];
          sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
                meas[meas_rd].id, meas[meas_rd].duration, TIMEOUT_S, meas[meas_rd].revolutions,
                meas[meas_rd].load, meas[meas_rd].v_bat, ap.rssi, mac_str, 0);
