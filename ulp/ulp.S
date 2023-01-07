@@ -229,13 +229,8 @@ check_pin:
 	ld r2, r1, 0  	// load previous state
 	st r0, r1, 0  	// store new state
 
-	and r0, r0, 1 	// check new state
-	jumpr check_active1, 1, eq
-
-check_edge:
-	and r2, r2, 1 	// check old state
-	jump idle, eq
-	jump check_active2
+	sub r0, r2, r0
+	jumpr check_active2, 1, eq	// Falling edge
 
 check_active1:
 	move r3, active
