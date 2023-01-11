@@ -1,3 +1,8 @@
+const spreadsheet_id = "asd";
+const sheet_name = "sheet";
+const mac_addr = "";
+const email_addr = "";
+
 function doGet(e) {
   try {
     // For easier debugging
@@ -9,23 +14,23 @@ function doGet(e) {
 
     // All the necessary variables
     var p = e.parameter;
-    var ss = SpreadsheetApp.openByUrl("asd");
-    var log_sheet = ss.getSheetByName("sheet");
+    var ss = SpreadsheetApp.openById(spreadsheet_id);
+    var log_sheet = ss.getSheetByName(sneet_name);
     var debug_sheet = ss.getSheetByName("debug");
     var row = log_sheet.getLastRow() + 1;
     var upload_time = new Date();
     var start_time = new Date(upload_time.getTime() - p.dur * 1000);
 
     // ADC compensation (based on mac in case of multiple sensors)
-    if (p.mac == "11:22:33:44:55:66")
+    if (p.mac == mac_addr)
       p.vbat = p.vbat * 0.880 + 454;
 
     // Update debug sheet
     debug_sheet.getRange("B1:B4").setValues([[upload_time], [row], [p.revs], [p.vbat/1000]]);
 
     // Alert the user if battery voltage is low
-    if (p.vbat < 4000 || p.revs == 0)
-      MailApp.sendEmail("example@email.com", "Battery low", 
+    if (p.vbat < 4000 && email_addr != "")
+      MailApp.sendEmail(email_addr, "Battery low", 
           "Battery of the crosstrainer is low. Voltage: " + p.vbat/1000);
 
     // This is either an error, or only a message for low battery
