@@ -1,5 +1,6 @@
 # esp32-crosstrainer
-Aim of this project is to monitor usage of a specific crosstrainer (SPORTOP E820), record the data and upload to a Google Script which in turn updates a Google Sheet with the latest values.
+
+Aim of this project is to monitor usage of a specific crosstrainer (SPORTOP E820), record the data and upload to a Google Apps Script which in turn updates a Google Sheet with the latest values.
 
 **This is the first time I'm sharing my code so there might be some issues here.**
 
@@ -9,11 +10,11 @@ Custom PCB was designed for this project. It's mainly an ESP32 with a voltage re
 
 ## Software
 
-Original idea was to minimize the current consumption of the device to allow it to be battery powered. The ULP core is used to collect the usage data and the main core is only woken up to upload the data to Google Apps Script. In retrospect, this isn't really necessary when compared to average current consumption of the crosstrainer itself.
+Original idea was to minimize the current consumption of the device to allow it to be battery powered. The ULP core is used to collect the usage data and the main core is only woken up to upload the data to Google Apps Script. In retrospect, this isn't really necessary when compared to average current consumption of the crosstrainer itself. Software is written using esp-idf framework.
 
 ### ULP
 
-The ULP is programmed to detect falling edges on a pin that is connected to a reed switch in the crosstrainer. After that the program goes into active mode and counts the edges, tracks time and measures the electronically selected load (difficulty) of the crosstrainer. The main CPU is woken up after there is no falling edges for a preset amount of time.
+The ULP is programmed to detect falling edges on a pin that is connected to a reed switch in the crosstrainer. After that the ULP program goes into active mode and counts the edges, tracks time and measures the electronically selected load of the crosstrainer. The main CPU is woken up after there is no falling edges for a preset amount of time.
 
 ### ESP32 Main CPU
 
@@ -25,9 +26,9 @@ The script adjusts the uploaded values to a more readable format and creates a n
 
 ## Issues
 
-- the data is stored internally without a timestamp, so the timestamp will be wrong if the first upload fails
-- battery measurement from the ULP core is not finished
-- temperature measurement with ULP core didn't work for me at all for some reason
+- the data is stored internally without a timestamp, so the timestamp will be wrong if the first upload attempt fails
+- battery measurement with the ULP core is not finished
+- temperature measurement with the ULP core didn't work for me at all for some reason
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
