@@ -9,11 +9,12 @@
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "freertos/event_groups.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
 
-static xSemaphoreHandle s_semph_get_ip_addrs;
+static SemaphoreHandle_t s_semph_get_ip_addrs;
 static esp_netif_t *wifi_netif = NULL;
 
 static const char *TAG = "my_wifi";

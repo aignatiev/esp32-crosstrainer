@@ -57,7 +57,7 @@ void advanced_ota_task(void *pvParameter) {
    if (err != ESP_OK) {
       ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed (%d)", err);
    } else {
-      printf("magic_word = %x, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
+      printf("magic_word = %lx, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
             desc.magic_word, desc.version, desc.project_name, desc.time, desc.date, desc.idf_ver);
    }
    esp_https_ota_abort(https_ota_handle);

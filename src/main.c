@@ -27,6 +27,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "esp_mac.h"
 
 #include "lwip/err.h"
 #include "lwip/sockets.h"
@@ -154,14 +155,14 @@ void app_main(void) {
 
       // check 8M/256 clock against XTAL, get 8M/256 clock period
       uint32_t rtc_8md256_period = rtc_clk_cal(RTC_CAL_8MD256, 1024);
-      printf("rtc_8md256_period = %d\n", rtc_8md256_period);
+      printf("rtc_8md256_period = %ld\n", rtc_8md256_period);
       if (rtc_8md256_period) {
          uint32_t rtc_fast_freq_hz = 1000000ULL * (1 << RTC_CLK_CAL_FRACT) * 256 / rtc_8md256_period;
-         printf("rtc_fast_freq_hz = %d\n", rtc_fast_freq_hz);
+         printf("rtc_fast_freq_hz = %ld\n", rtc_fast_freq_hz);
       }
 
-      const esp_app_desc_t *desc = esp_ota_get_app_description();
-      printf("magic_word = %x, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
+      const esp_app_desc_t *desc = esp_app_get_description();
+      printf("magic_word = %lx, version = %s, project_name = %s\ntime = %s, date %s, idf_ver = %s\n", 
             desc->magic_word, desc->version, desc->project_name, desc->time, desc->date, desc->idf_ver);
 
       init_ulp_program();
@@ -178,20 +179,20 @@ void app_main(void) {
       uint32_t v_adc = ulp_vbat * VREF / 4096;
       uint32_t v_bat = v_adc * (R1_VAL + R2_VAL) / R2_VAL;
       //printf("temperature = %d\n", ulp_temperature);
-      printf("adc = %d\n", ulp_vbat);
-      printf("v_adc = %d\n", v_adc);
-      printf("v_bat = %d\n", v_bat);
+      printf("adc = %ld\n", ulp_vbat);
+      printf("v_adc = %ld\n", v_adc);
+      printf("v_bat = %ld\n", v_bat);
       printf("id = %d\n", rtc_id);
-      printf("last_value = %d\n", ulp_last_result);
-      printf("duration = %d\n", ulp_duration);
+      printf("last_value = %ld\n", ulp_last_result);
+      printf("duration = %ld\n", ulp_duration);
       printf("timeout = %d\n", TIMEOUT_S);
-      printf("revolutions = %d\n", ulp_revs);
-      printf("load_hi = %d\n", ulp_load_hi);
-      printf("load_lo = %d\n", ulp_load_lo);
-      printf("load_sum = %d\n", load);
+      printf("revolutions = %ld\n", ulp_revs);
+      printf("load_hi = %ld\n", ulp_load_hi);
+      printf("load_lo = %ld\n", ulp_load_lo);
+      printf("load_sum = %ld\n", load);
       if (ulp_revs)
          load /= ulp_revs;
-      printf("load = %d\n", load);
+      printf("load = %ld\n", load);
 
       if ((meas_wr + 1) % MEAS_COUNT == meas_rd) {
          ESP_LOGW(TAG, "Data storage full, discarding data. meas_rd: %0d, meas_wr: %0d", meas_rd, meas_wr);
@@ -206,7 +207,7 @@ void app_main(void) {
       }
 
       if (v_bat < LOW_BATTERY_MV) {
-         ESP_LOGW(TAG, "Battery voltage low, skipping upload! v_bat: %0d", v_bat);
+         ESP_LOGW(TAG, "Battery voltage low, skipping upload! v_bat: %0ld", v_bat);
          power_off();
       }
 
@@ -240,7 +241,7 @@ void app_main(void) {
    	
       while (meas_wr != meas_rd) {
          // Construct the arguments, whole URL and the HTTP request
-         sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%d&vbat=%d&rssi=%d&mac=%s&temp=%d", 
+         sprintf(params, "id=%d&dur=%d&to=%d&revs=%d&diff=%ld&vbat=%ld&rssi=%d&mac=%s&temp=%d", 
                meas[meas_rd].id, meas[meas_rd].duration, TIMEOUT_S, meas[meas_rd].revolutions,
                meas[meas_rd].load, meas[meas_rd].v_bat, ap.rssi, mac_str, 0);
          sprintf(url, WEB_URL, params);

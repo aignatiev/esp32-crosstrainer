@@ -21,9 +21,9 @@ void https_get_request(const char *WEB_SERVER_URL, const char *REQUEST) {
    int ret, len;
 
    esp_tls_cfg_t cfg = {.crt_bundle_attach = esp_crt_bundle_attach};
-   esp_tls_t *tls = esp_tls_conn_http_new(WEB_SERVER_URL, &cfg);
+   esp_tls_t *tls = esp_tls_init();
 
-   if (tls != NULL) {
+   if (esp_tls_conn_http_new_sync(WEB_SERVER_URL, &cfg, tls) == 1) {
       ESP_LOGI(TAG, "Connection established...");
    } else {
       ESP_LOGE(TAG, "Connection failed...");
