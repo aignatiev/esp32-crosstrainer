@@ -25,6 +25,9 @@
 // Which pin activity LED is connected to
 #define LED_PIN         GPIO_NUM_2
 
+// Which pin DBG test point is connected to
+#define DBG_PIN         GPIO_NUM_4
+
 // ULP wakeup period in ms
 #define ULP_WAKEUP_MS   10
 
