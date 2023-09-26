@@ -14,10 +14,10 @@
 #include "soc/rtc.h"
 #include "driver/gpio.h"
 #include "driver/rtc_io.h"
-#include "driver/adc.h"
-#include "driver/dac.h"
-#include "esp32/ulp.h"
+#include "esp_adc/adc_oneshot.h"
+#include "ulp.h"
 #include "ulp_main.h"
+#include "ulp_adc.h"
 
 #include "defines.h"
 
@@ -80,16 +80,26 @@ static void init_ulp_program(void) {
    ESP_ERROR_CHECK(err);
 
    // Configure ADC (same ADC channel has to be set in ULP code)
-   adc1_config_channel_atten(ADC1_CHANNEL_6, ADC_ATTEN_DB_2_5);   // For load measurement
-   adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_2_5);     // For V_bat measurement
-   adc1_config_width(ADC_WIDTH_BIT_12);
-   adc1_ulp_enable();
+   adc_oneshot_unit_handle_t adc_handle;
+   adc_oneshot_unit_init_cfg_t init_config = {
+      .unit_id = ADC_UNIT_1,
+      .ulp_mode = ADC_ULP_MODE_FSM,
+   };
+   ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adc_handle));
+
+   adc_oneshot_chan_cfg_t config = {
+      .bitwidth = ADC_BITWIDTH_12,
+      .atten = ADC_ATTEN_DB_2_5,
+   };
+   ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, ADC_CHANNEL_6, &config));
+   ESP_ERROR_CHECK(adc_oneshot_config_channel(adc_handle, ADC_CHANNEL_7, &config));
+
+   //esp_sleep_enable_adc_tsens_monitor(1);
 
    // Map GPIO pin to RTC pin
-   gpio_num_t reed_gpio_num = REED_PIN;
-   int rtcio_num = rtc_io_number_get(reed_gpio_num);
-   assert(rtc_gpio_is_valid_gpio(reed_gpio_num) && "GPIO used for pulse counting must be an RTC IO");
-   printf("Using RTC pin %d for GPIO pin %d\n", rtcio_num, reed_gpio_num);
+   int rtcio_num = rtc_io_number_get(REED_PIN);
+   assert(rtc_gpio_is_valid_gpio(REED_PIN) && "GPIO used for pulse counting must be an RTC IO");
+   printf("Using RTC pin %d for GPIO pin %d\n", rtcio_num, REED_PIN);
 
    // Configure the necessary ULP variables
    ulp_io_number = rtcio_num;
@@ -97,18 +107,14 @@ static void init_ulp_program(void) {
    ulp_timeout_max = TIMEOUT_S * 1000 / ULP_WAKEUP_MS;
 
    // Initialize selected GPIO as RTC IO, enable input, disable pullup and pulldown
-   rtc_gpio_init(reed_gpio_num);
-   rtc_gpio_set_direction(reed_gpio_num, RTC_GPIO_MODE_INPUT_ONLY);
-   rtc_gpio_pulldown_dis(reed_gpio_num);
-   //rtc_gpio_pullup_dis(reed_gpio_num);
-   rtc_gpio_hold_en(reed_gpio_num);
+   rtc_gpio_init(REED_PIN);
+   rtc_gpio_set_direction(REED_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+   rtc_gpio_pulldown_dis(REED_PIN);
+   //rtc_gpio_pullup_dis(REED_PIN);
+   rtc_gpio_hold_en(REED_PIN);
 
-   //rtc_gpio_init(GPIO_NUM_2);
-   //rtc_gpio_set_direction(GPIO_NUM_2, RTC_GPIO_MODE_OUTPUT_ONLY);
-   //rtc_gpio_pulldown_dis(GPIO_NUM_2);
-   //rtc_gpio_init(GPIO_NUM_4);
-   //rtc_gpio_set_direction(GPIO_NUM_4, RTC_GPIO_MODE_OUTPUT_ONLY);
-   //rtc_gpio_pulldown_dis(GPIO_NUM_4);
+   //rtc_gpio_init(DBG_PIN);
+   //rtc_gpio_set_direction(DBG_PIN, RTC_GPIO_MODE_OUTPUT_ONLY);
 
    ulp_set_wakeup_period(0, ULP_WAKEUP_MS * 1000UL);
 

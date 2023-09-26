@@ -25,7 +25,10 @@ void ota_task(void *pvParameter) {
       .url = OTA_URL,
       .cert_pem = (char *)server_cert_pem_start
    };
-   esp_err_t ret = esp_https_ota(&config);
+   esp_https_ota_config_t ota_config = {
+      .http_config = &config,
+   };
+   esp_err_t ret = esp_https_ota(&ota_config);
    if (ret == ESP_OK) {
       esp_restart();
    } else {
